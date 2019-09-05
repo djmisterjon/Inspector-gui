@@ -1,4 +1,21 @@
 class Inspectors {
+    /** create inspector with from a pixi filter */ //ex: Inspectors.filters(ShockwaveFilter);
+    static filters = function(pixiFilter,options=Object.keys(pixiFilter.uniformData)){
+        const gui = new Inspectors(pixiFilter.constructor.name, 'filters inspector');
+        const f1 = gui.addFolder('OPTIONS').listen().slider();
+        options.forEach(key => {
+            let prop;
+            if(pixiFilter.hasOwnProperty(key)){
+                prop = f1.add(pixiFilter, key).listen();
+                if(pixiFilter[key]<10){ prop.step(0.01) } // ctrlKey for slowdown
+            }else{
+                prop = f1.add(pixiFilter.uniforms, key).listen();
+                if(pixiFilter.uniforms[key]<10){ prop.step(0.01) }
+            }
+        });
+        return gui;
+    };
+
     /** when drag from slider is busy */
     static get pixiApp(){return window.PIXI && window.app || (typeof $app !== void 0+'') && $app; }
     static __busySlider = false;
@@ -154,6 +171,22 @@ class Inspectors {
           const div = this.__gui.FOLDERS_BODY = document.createElement("div");
           div.classList.add('FOLDERS-BODY');
           this.__gui.toastBody.appendChild(div);
+          //# copyClipbar
+          const btnCopyClipbar = this.copyClibarButton = document.createElement("button");
+          btnCopyClipbar.value = 'C';
+          btnCopyClipbar.onclick = ()=>{
+              if(window.nw || global.nw){
+                const clipboard = nw.Clipboard.get();
+                const dc = this.__elements.map( e=> {
+                    let v = e.getValue(); 
+                    return { [e._proprety]:isFinite(v)?v : v&&Object.entries(v).filter(k=>!['cb','scope'].contains(k[0])) } 
+                });
+                clipboard.set(JSON.stringify(dc));
+              }
+          }
+          btnCopyClipbar.classList.add('BUTTONS-clipbar');
+          this.__gui.FOLDERS_BODY.appendChild(btnCopyClipbar)
+
           //#buttons div for bottom
           const btn = this.buttons = document.createElement("div");
           btn.classList.add('BUTTONS-BOTTOMS');
@@ -395,6 +428,11 @@ class Inspectors {
     */
     static ELEMENT = class ELEMENT {
         constructor(target,proprety,options,NAME,folderName) {
+            // si pass un Array, et pas option!, creer les keys arrays
+            if(Array.isArray(target[proprety]) && !options){
+                options = Object.keys(target[proprety]);
+            };
+
             this._folderName = folderName;
             this._NAME = NAME;
             /** target elements */
@@ -420,6 +458,7 @@ class Inspectors {
             this._max = null;
             this._min = null;
             this._step = 1;
+
             this._onchange = function (e){};
             this.initialize();
         };
@@ -441,7 +480,7 @@ class Inspectors {
         };
 
         /** get value, pass extend prop for special objet only */
-        getValue (prop) {
+        getValue(prop) {
             return prop? this.target[this._proprety][prop] :this.target[this._proprety];
         };
         /** create container thats hold all stuff */
@@ -546,7 +585,7 @@ class Inspectors {
         /** objet contien */
         create_objet(){
             const container = document.createElement("div");
-            this.options.forEach(prop => {
+            this.options && this.options.forEach(prop => {
                 if(this.target[this._proprety][prop] !== undefined ){
                     const type = typeof this.target[this._proprety][prop]; // le type de la sub proprety
                     const div = document.createElement("div");
